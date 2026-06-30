@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Procedimiento MCFC</title>
+
+    <link
+        href="/static/vendor/bootstrap/bootstrap.min.css"
+        rel="stylesheet"
+    >
+    <link href="/static/style.css" rel="stylesheet">
+
+    <script>
+        window.CSRF_TOKEN = "{{ csrf_token }}";
+    </script>
+
+</head>
+
+<body class="dashboard-body">
+
+<div class="dashboard-shell">
+
+    <header class="topbar">
+        <div>
+            <p class="eyebrow mb-1">Secuencia operativa</p>
+            <h1 class="page-title mb-0">Procedimiento MCFC</h1>
+        </div>
+        <div class="page-actions">
+            {% if role == "admin" %}
+            <button
+                class="btn btn-outline-warning btn-sm"
+                onclick="nextStep()"
+            >
+                Siguiente paso
+            </button>
+            {% endif %}
+            <a href="/" class="btn btn-outline-light btn-sm">Volver</a>
+        </div>
+    </header>
+
+    <main class="content-stack">
+        <section class="panel">
+            <h2 class="section-title">Pasos de arranque</h2>
+            <div class="table-responsive-custom">
+                <table class="table dashboard-table table-striped table-sm">
+                    <thead>
+                        <tr>
+                            <th>Fase</th>
+                            <th>Paso</th>
+                            <th>Modo</th>
+                            <th>Temperatura</th>
+                            <th>Pendiente</th>
+                            <th>Duración</th>
+                            <th>Anodo</th>
+                            <th>Cátodo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for step in steps %}
+                        <tr>
+                            <td style="white-space: nowrap;">
+                                {{ step.phase|replace('Phase', 'Fase')|replace('Nominal operation', 'Operacion nominal') }}
+                            </td>
+                            <td style="white-space: nowrap;">{{ step.step }}</td>
+                            <td>
+                                <span class="badge bg-{{ 'info' if step.mode == 'ramp' else 'warning' }}">
+                                    {{ 'Rampa' if step.mode == 'ramp' else 'Mantener' if step.mode == 'hold' else step.mode }}
+                                </span>
+                            </td>
+                            <td style="white-space: nowrap;">
+                                {% if step.mode == "ramp" %}
+                                {{ step.t_start }} -> {{ step.t_end }} °C
+                                {% else %}
+                                {{ step.t_set }} °C
+                                {% endif %}
+                            </td>
+                            <td style="white-space: nowrap;">
+                                {{ step.slope if step.mode == "ramp" else "-" }}
+                            </td>
+                            <td style="white-space: nowrap;">
+                                {% if step.duration_s is none %}
+                                Indefinido
+                                {% else %}
+                                {{ "%.1f"|format(step.duration_s / 3600) }} h
+                                {% endif %}
+                            </td>
+                            <td>{{ step.anode_flow_text }}</td>
+                            <td>{{ step.cathode_flow_text }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+</div>
+
+<script>
+function nextStep() {
+    if (!confirm("¿Saltar al siguiente paso del procedimiento?")) {
+        return;
+    }
+
+    fetch("/api/procedure/next", {
+        method: "POST",
+        headers: {
+            "X-CSRFToken": window.CSRF_TOKEN
+        }
+    })
+    .then(res => {
+        if (!res.ok) {
+            return res.text().then(text => Promise.reject(text));
+        }
+        return res.text();
+    })
+    .then(() => {
+        window.location.href = "/";
+    })
+    .catch(err => alert(err));
+}
+</script>
+
+</body>
+</html>

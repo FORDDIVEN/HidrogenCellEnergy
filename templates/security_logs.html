@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Security Logs</title>
+
+    <link href="/static/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/style.css" rel="stylesheet">
+
+</head>
+
+<body class="dashboard-body">
+
+<div class="dashboard-shell">
+
+    <header class="topbar">
+        <div>
+            <p class="eyebrow mb-1">Auditoria</p>
+            <h1 class="page-title mb-0">Logs de Seguridad</h1>
+        </div>
+        <div class="page-actions">
+            <a href="/" class="btn btn-outline-light btn-sm">
+                Volver
+            </a>
+        </div>
+    </header>
+
+    <main class="content-stack">
+        <section class="panel">
+            <div class="section-toolbar">
+                <div>
+                    <h2 class="section-title mb-1">Historial de Eventos</h2>
+                    <p class="muted-text mb-0" id="logsFilterCount">
+                        {{ logs|length }} eventos visibles
+                    </p>
+                </div>
+                <div class="filter-box">
+                    <label for="logsFilter" class="metric-label">Filtrar</label>
+                    <input
+                        id="logsFilter"
+                        class="form-control form-control-sm"
+                        type="search"
+                        placeholder="Usuario, IP, acción..."
+                        autocomplete="off"
+                    >
+                </div>
+            </div>
+
+            <div class="table-responsive-custom">
+                <table class="table dashboard-table logs-table table-striped table-sm">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Usuario</th>
+                            <th>Acción</th>
+                            <th>IP</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for log in logs %}
+                        <tr class="log-row">
+                            <td class="log-time"><small>{{ log[0][:16] }}</small></td>
+                            <td class="log-user"><code>{{ log[1] }}</code></td>
+                            <td class="log-action">
+                                <span class="badge log-badge bg-{{ 'danger' if 'DELETE' in log[2] or 'FAILED' in log[2] or 'LOCKED' in log[2] else 'warning' if 'UPDATE' in log[2] or 'CREATE' in log[2] else 'info' }}">
+                                    {{ log[2] }}
+                                </span>
+                            </td>
+                            <td class="log-ip"><small>{{ log[3] }}</small></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+</div>
+
+<script>
+const logsFilter = document.getElementById("logsFilter");
+const logsRows = Array.from(document.querySelectorAll(".log-row"));
+const logsFilterCount = document.getElementById("logsFilterCount");
+
+function updateLogsFilter() {
+    const query = logsFilter.value.trim().toLowerCase();
+    let visible = 0;
+
+    logsRows.forEach(row => {
+        const matches = row.innerText.toLowerCase().includes(query);
+        row.hidden = !matches;
+
+        if (matches) {
+            visible += 1;
+        }
+    });
+
+    logsFilterCount.innerText = `${visible} evento${visible === 1 ? "" : "s"} visible${visible === 1 ? "" : "s"}`;
+}
+
+if (logsFilter) {
+    logsFilter.addEventListener("input", updateLogsFilter);
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Ejecuciones Pasadas</title>
+
+    <link
+        href="/static/vendor/bootstrap/bootstrap.min.css"
+        rel="stylesheet"
+    >
+    <link href="/static/style.css" rel="stylesheet">
+
+</head>
+
+<body class="dashboard-body">
+
+<div class="dashboard-shell">
+
+    <header class="topbar">
+        <div>
+            <p class="eyebrow mb-1">Historial</p>
+            <h1 class="page-title mb-0">Ejecuciones Pasadas</h1>
+        </div>
+        <div class="page-actions">
+            <a href="/" class="btn btn-outline-light btn-sm">Volver</a>
+        </div>
+    </header>
+
+    <main class="content-stack">
+        <section class="panel">
+            <h2 class="section-title">Corridas registradas</h2>
+            <div class="table-responsive-custom">
+                <table class="table dashboard-table table-striped table-sm">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Estado</th>
+                            <th>Inicio</th>
+                            <th>Fin</th>
+                            <th>Iniciado por</th>
+                            <th>Detenido por</th>
+                            <th>Motivo de detención</th>
+                            <th>Modo</th>
+                            <th>Grafico</th>
+                            <th>Exportar</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for run in runs %}
+                        <tr>
+                            <td>#{{ run.id }}</td>
+                            <td>
+                                <span class="badge bg-{{ 'success' if run.status == 'RUNNING' else 'secondary' }}">
+                                    {{ run.status }}
+                                </span>
+                            </td>
+                            <td style="white-space: nowrap;">{{ run.started_at[:19] if run.started_at else '-' }}</td>
+                            <td style="white-space: nowrap;">{{ run.ended_at[:19] if run.ended_at else '-' }}</td>
+                            <td>{{ run.started_by or '-' }}</td>
+                            <td>{{ run.stopped_by or '-' }}</td>
+                            <td>{{ run.stop_reason or '-' }}</td>
+                            <td>{{ 'Simulación' if run.simulation_mode else 'Hardware' }}</td>
+                            <td>
+                                <a
+                                    class="btn btn-sm btn-outline-light"
+                                    href="/runs/{{ run.id }}/chart"
+                                    target="_blank"
+                                    rel="noopener"
+                                >
+                                    Ver
+                                </a>
+                            </td>
+                            <td style="white-space: nowrap;">
+                                <a class="btn btn-sm btn-outline-info" href="/export_csv?run_id={{ run.id }}">CSV</a>
+                                <a class="btn btn-sm btn-outline-success" href="/export_excel?run_id={{ run.id }}">Excel</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+</div>
+
+</body>
+</html>

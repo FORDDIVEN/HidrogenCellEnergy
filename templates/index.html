@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Control IoT Celda Hidrogeno</title>
+
+    <link
+        href="/static/vendor/bootstrap/bootstrap.min.css"
+        rel="stylesheet"
+    >
+    <link href="/static/style.css" rel="stylesheet">
+
+    <script src="/static/vendor/socket.io/socket.io.min.js"></script>
+    <script src="/static/vendor/chart.js/chart.umd.min.js"></script>
+
+    <script>
+        window.CSRF_TOKEN = "{{ csrf_token }}";
+        window.CAN_VIEW_ALARMS = "{{ role }}" === "operator" || "{{ role }}" === "admin";
+    </script>
+
+</head>
+
+<body class="dashboard-body">
+
+<div class="dashboard-shell">
+
+    <header class="topbar">
+        <div>
+            <p class="eyebrow mb-1">Supervisory Control and Data Acquisition - Molten Carbonate Fuel Cell</p>
+            <h1 class="page-title mb-0">SCADA MCFC - Celda Hidrogeno</h1>
+        </div>
+
+        <div class="user-panel">
+            <div class="user-meta">
+                <span class="user-name">{{ username }}</span>
+                <span class="role-pill">{{ role }}</span>
+            </div>
+            {% if role == "admin" %}
+            <a href="/admin/users" class="btn btn-sm btn-outline-info">Usuarios</a>
+            {% endif %}
+            <form method="POST" action="/logout" class="mb-0">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button type="submit" class="btn btn-sm btn-danger">Logout</button>
+            </form>
+        </div>
+    </header>
+
+    <section class="status-band">
+        <div
+            class="status-card status-stopped"
+            id="systemStatus"
+            role="alert"
+        >
+            <span class="status-dot" id="statusIndicator"></span>
+            <span id="systemStatusText">STATUS: STOPPED</span>
+        </div>
+        <div class="connection-card">
+            <div>
+                <span class="metric-label">Conexion</span>
+                <span id="connectionMode" class="connection-text">---</span>
+            </div>
+            {% if role == "admin" %}
+            <a href="/admin/config" class="btn btn-outline-info btn-sm">
+                Configuracion
+            </a>
+            {% endif %}
+        </div>
+        <div id="alarmsBanner" class="alarm-zone"></div>
+    </section>
+
+    <main class="dashboard-grid">
+
+        <section class="panel control-panel">
+            <div class="panel-header">
+                <div>
+                    <h2>Control</h2>
+                    <p>Ejecucion <span id="runId">---</span></p>
+                </div>
+            </div>
+
+            {% if role in ["operator", "admin"] %}
+            <div class="command-grid">
+                <button
+                    class="btn btn-success command-button"
+                    id="startBtn"
+                    onclick="controlSystem('/start')"
+                >
+                    Iniciar
+                </button>
+
+                <button
+                    class="btn btn-danger command-button"
+                    id="stopBtn"
+                    onclick="controlSystem('/stop')"
+                >
+                    Detener
+                </button>
+
+                <button
+                    class="btn btn-warning command-button text-dark"
+                    id="pauseBtn"
+                    onclick="togglePause()"
+                >
+                    Pausar
+                </button>
+
+                {% if role == "admin" %}
+                <button
+                    class="btn btn-outline-warning command-button"
+                    id="nextStepBtn"
+                    onclick="nextProcedureStep()"
+                >
+                    Siguiente paso
+                </button>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <div class="tool-list">
+                <a href="/export_csv" class="btn btn-outline-info btn-sm">CSV</a>
+                <a href="/export_excel" class="btn btn-outline-success btn-sm">Excel</a>
+            </div>
+
+            <div class="side-telemetry">
+                <div class="side-metric-grid">
+                    <div class="metric-card metric-setpoint side-setpoint">
+                        <span class="metric-label">SetPoint</span>
+                        <strong id="sp">---</strong>
+                    </div>
+                    <div class="metric-card metric-primary">
+                        <span class="metric-label">Termocupla 1</span>
+                        <strong id="tc1">---</strong>
+                    </div>
+                    <div class="metric-card relay-card" id="rl1Card">
+                        <span class="metric-label">Rele 1</span>
+                        <strong id="rl1">OFF</strong>
+                    </div>
+                    <div class="metric-card metric-primary">
+                        <span class="metric-label">Termocupla 2</span>
+                        <strong id="tc2">---</strong>
+                    </div>
+                    <div class="metric-card relay-card" id="rl2Card">
+                        <span class="metric-label">Rele 2</span>
+                        <strong id="rl2">OFF</strong>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="panel procedure-panel">
+            <div class="panel-header">
+                <div>
+                    <a href="/procedure" class="panel-title-link">Procedimiento</a>
+                    <p id="phase">---</p>
+                </div>
+                <a href="/runs" class="btn btn-outline-light btn-sm">Ejecuciones</a>
+            </div>
+
+            <div class="procedure-grid">
+                <div>
+                    <span class="metric-label">Modo</span>
+                    <strong id="stepMode">---</strong>
+                </div>
+                <div>
+                    <span class="metric-label">Tiempo Restante</span>
+                    <strong id="remainingTime">---</strong>
+                </div>
+                <div class="flows-cell">
+                    <span class="metric-label">Flujos</span>
+                    <strong id="flows">---</strong>
+                </div>
+            </div>
+        </section>
+
+        <section class="panel chart-panel">
+            <div class="panel-header">
+                <div class="chart-title-group">
+                    <h2>Grafico en Tiempo Real</h2>
+                    <button
+                        class="btn btn-sm chart-reset-button"
+                        onclick="resetChart()"
+                    >
+                        Limpiar Grafico
+                    </button>
+                </div>
+
+                <div class="chart-actions">
+                {% if role in ["operator", "admin"] %}
+                    <div class="logging-box chart-logging">
+                        <div class="logging-row">
+                            <label for="loggingInterval" class="metric-label">
+                                Registrar cada:
+                            </label>
+                            <input
+                                id="loggingInterval"
+                                class="form-control form-control-sm"
+                                type="text"
+                                value="1s"
+                                placeholder="Ej: 5s, 5m, 1h"
+                            >
+                            <button
+                                class="btn btn-light btn-sm"
+                                onclick="saveLoggingInterval()"
+                            >
+                                Guardar
+                            </button>
+                        </div>
+                        <small id="loggingIntervalStatus" class="muted-text">
+                            Intervalo actual: 1s
+                        </small>
+                    </div>
+                {% endif %}
+                </div>
+            </div>
+            <div class="chart-frame">
+                <canvas id="tempChart"></canvas>
+            </div>
+        </section>
+
+    </main>
+
+</div>
+
+<script src="/static/charts.js"></script>
+
+</body>
+</html>

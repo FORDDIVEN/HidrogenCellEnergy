@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Historial de Eventos de Alarma</title>
+    <link href="/static/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/style.css" rel="stylesheet">
+</head>
+
+<body class="dashboard-body">
+<div class="dashboard-shell">
+    <header class="topbar">
+        <div>
+            <p class="eyebrow mb-1">Supervision</p>
+            <h1 class="page-title mb-0">Eventos de Alarma</h1>
+        </div>
+        <div class="page-actions">
+            <a href="/alarms" class="btn btn-outline-light btn-sm">
+                Volver
+            </a>
+        </div>
+    </header>
+
+    <main class="content-stack">
+        <section class="panel">
+            <h2 class="section-title">Historial Completo</h2>
+            <div class="table-responsive-custom">
+                <table class="table dashboard-table table-striped table-sm">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Codigo</th>
+                            <th>Tipo</th>
+                            <th>Estado</th>
+                            <th>Detalles</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if events %}
+                            {% for event in events %}
+                                <tr>
+                                    <td style="white-space: nowrap;"><small>{{ event[1][:16] }}</small></td>
+                                    <td><code>{{ event[3] }}</code></td>
+                                    <td>
+                                        {% if event[4] == 'raised' %}
+                                            <span class="badge bg-danger">RAISED</span>
+                                        {% elif event[4] == 'cleared' %}
+                                            <span class="badge bg-success">CLEARED</span>
+                                        {% elif event[4] == 'acknowledged' %}
+                                            <span class="badge bg-info">ACK</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ event[4] }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if event[4] == 'raised' %}
+                                            <span class="badge bg-danger">ACTIVE</span>
+                                        {% elif event[4] == 'cleared' %}
+                                            <span class="badge bg-success">RESOLVED</span>
+                                        {% elif event[4] == 'acknowledged' %}
+                                            <span class="badge bg-primary">ACKED</span>
+                                        {% endif %}
+                                    </td>
+                                    <td><small class="soft-text">{{ event[5] or '-' }}</small></td>
+                                </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center py-3">
+                                    <span class="soft-text">No hay eventos registrados</span>
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="panel">
+            <p class="soft-text small mb-0">
+                Total: <strong>{{ events|length }}</strong> eventos |
+                Última actualización: <strong id="lastUpdate">-</strong>
+            </p>
+        </section>
+    </main>
+</div>
+
+<script>
+    document.getElementById('lastUpdate').textContent =
+        new Date().toLocaleString('es-ES');
+</script>
+
+</body>
+</html>

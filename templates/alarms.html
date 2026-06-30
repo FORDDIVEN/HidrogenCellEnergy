@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Alarmas</title>
+
+    <link
+        href="/static/vendor/bootstrap/bootstrap.min.css"
+        rel="stylesheet"
+    >
+    <link href="/static/style.css" rel="stylesheet">
+
+</head>
+
+<body class="dashboard-body">
+
+<div class="dashboard-shell">
+
+    <header class="topbar">
+        <div>
+            <p class="eyebrow mb-1">Supervision</p>
+            <h1 class="page-title mb-0">Alarmas</h1>
+        </div>
+        <div class="page-actions">
+            <a href="/alarm_events" class="btn btn-outline-info btn-sm">Eventos</a>
+            <a href="/" class="btn btn-outline-light btn-sm">Volver</a>
+        </div>
+    </header>
+
+    <main class="content-stack">
+        <section class="filter-bar">
+            <div class="page-actions justify-content-start">
+                <a href="/alarms?filter=all" class="btn btn-sm {{ 'btn-light' if show_filter == 'all' else 'btn-outline-light' }}">Todas</a>
+                <a href="/alarms?filter=active" class="btn btn-sm {{ 'btn-light' if show_filter == 'active' else 'btn-outline-light' }}">Activas</a>
+            </div>
+            {% if show_filter == 'active' %}
+            <span class="badge bg-{{ 'danger' if filter_severity == 'critical' else 'warning' if filter_severity == 'warning' else 'info' }}">
+                Solo activas
+            </span>
+            {% endif %}
+        </section>
+
+        <section class="summary-grid">
+            <div class="metric-card summary-card">
+                <span class="metric-label">Activas</span>
+                <strong>{{ active_count }}</strong>
+            </div>
+            <div class="metric-card summary-card">
+                <span class="metric-label">No ACK</span>
+                <strong>{{ unacked_count }}</strong>
+            </div>
+            <div class="metric-card summary-card">
+                <span class="metric-label">Total vista</span>
+                <strong>{{ history|length }}</strong>
+            </div>
+        </section>
+
+        <section class="panel">
+            <h2 class="section-title">Alarmas Activas</h2>
+            {% if active %}
+            <div class="list-group dashboard-list">
+                {% for a in active %}
+                <div class="list-group-item d-flex justify-content-between align-items-start flex-wrap gap-2">
+                    <div class="flex-grow-1">
+                        <strong class="text-break">{{ a[2] }}</strong>
+                        <span class="badge bg-{{ 'danger' if a[3] == 'critical' else 'warning' if a[3] == 'warning' else 'secondary' }} ms-2">
+                            {{ a[3].upper() }}
+                        </span>
+                        <div class="soft-text small mt-1">{{ a[4] }}</div>
+                        <small class="soft-text">{{ a[1] }}</small>
+                    </div>
+                    <div>
+                        {% if a[6] == 0 %}
+                        <form method="POST" action="/api/alarms/ack/{{ a[0] }}" onsubmit="return confirm('¿Confirmar ACK?');" class="mb-0">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                            <button type="submit" class="btn btn-sm btn-outline-light">
+                                ACK
+                            </button>
+                        </form>
+                        {% else %}
+                        <span class="badge bg-success">ACK</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="alert alert-success mb-0">No hay alarmas activas</div>
+            {% endif %}
+        </section>
+
+        <section class="panel">
+            <h2 class="section-title">Historial</h2>
+            <div class="table-responsive-custom">
+                <table class="table dashboard-table table-striped table-sm">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Codigo</th>
+                            <th>Severidad</th>
+                            <th>Activa</th>
+                            <th>ACK</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in history %}
+                        <tr>
+                            <td><small>{{ a[1][:16] }}</small></td>
+                            <td><code>{{ a[2] }}</code></td>
+                            <td>
+                                <span class="badge bg-{{ 'danger' if a[3] == 'critical' else 'warning' if a[3] == 'warning' else 'secondary' }}">
+                                    {{ a[3][:3].upper() }}
+                                </span>
+                            </td>
+                            <td>{{ 'SI' if a[5] else 'NO' }}</td>
+                            <td>{{ 'SI' if a[6] else 'NO' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+</div>
+
+</body>
+</html>

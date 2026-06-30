@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Configuracion</title>
+
+    <link
+        href="/static/vendor/bootstrap/bootstrap.min.css"
+        rel="stylesheet"
+    >
+    <link href="/static/style.css" rel="stylesheet">
+
+    <script>
+        window.CSRF_TOKEN = "{{ csrf_token }}";
+    </script>
+
+</head>
+
+<body class="dashboard-body">
+
+<div class="dashboard-shell">
+
+    <header class="topbar">
+        <div>
+            <p class="eyebrow mb-1">Administracion</p>
+            <h1 class="page-title mb-0">Configuracion</h1>
+        </div>
+        <div class="page-actions">
+            <a href="/" class="btn btn-outline-light btn-sm">Volver</a>
+        </div>
+    </header>
+
+    <main class="content-stack">
+        <section class="panel">
+            <h2 class="section-title">Parametros de conexion</h2>
+            <form id="configForm">
+                <div class="row g-3">
+                    <div class="col-12 col-md-4">
+                        <label class="form-label">Etiqueta de modo</label>
+                        <input
+                            class="form-control"
+                            name="mode_label"
+                            value="{{ config.mode_label }}"
+                            placeholder="Ej: HIL local, Raspberry HIL, Hardware"
+                        >
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label">IP Modbus</label>
+                        <input
+                            class="form-control"
+                            name="modbus_ip"
+                            value="{{ config.modbus_ip }}"
+                            required
+                        >
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <label class="form-label">Puerto</label>
+                        <input
+                            class="form-control"
+                            name="modbus_port"
+                            type="number"
+                            min="1"
+                            max="65535"
+                            value="{{ config.modbus_port }}"
+                            required
+                        >
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <label class="form-label">Slave ID</label>
+                        <input
+                            class="form-control"
+                            name="modbus_slave_id"
+                            type="number"
+                            min="1"
+                            max="255"
+                            value="{{ config.modbus_slave_id }}"
+                            required
+                        >
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <label class="form-label">Leer datos cada /s</label>
+                        <input
+                            class="form-control"
+                            name="sample_time"
+                            type="number"
+                            min="1"
+                            value="{{ config.sample_time }}"
+                            required
+                        >
+                    </div>
+                    <div class="col-12 col-md-3 d-flex align-items-end">
+                        <div class="form-check">
+                            <input
+                                class="form-check-input"
+                                type="checkbox"
+                                name="simulation_mode"
+                                value="1"
+                                id="simulationMode"
+                                {% if config.simulation_mode %}checked{% endif %}
+                            >
+                            <label class="form-check-label" for="simulationMode">
+                                Simulacion
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-12 page-actions justify-content-start">
+                        <button
+                            type="button"
+                            class="btn btn-success"
+                            onclick="saveConfig()"
+                        >
+                            Guardar
+                        </button>
+                        <button
+                            type="button"
+                            class="btn btn-outline-info"
+                            onclick="testModbus()"
+                        >
+                            Test Modbus
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+            <div id="configStatus" class="alert alert-secondary mt-3 mb-0">
+                Sin cambios
+            </div>
+        </section>
+    </main>
+
+</div>
+
+<script>
+function formData() {
+    return new FormData(document.getElementById("configForm"));
+}
+
+function showStatus(message, ok) {
+    const status = document.getElementById("configStatus");
+    status.className = `alert mt-3 mb-0 ${ok ? "alert-success" : "alert-danger"}`;
+    status.innerText = message;
+}
+
+function saveConfig() {
+    fetch("/api/config", {
+        method: "POST",
+        headers: {
+            "X-CSRFToken": window.CSRF_TOKEN
+        },
+        body: formData()
+    })
+    .then(res => {
+        if (!res.ok) {
+            return res.text().then(text => Promise.reject(text));
+        }
+
+        return res.json();
+    })
+    .then(data => {
+        showStatus(`Configuración guardada: ${data.mode_label || data.modbus_ip}`, true);
+    })
+    .catch(err => showStatus(err, false));
+}
+
+function testModbus() {
+    fetch("/api/config/test_modbus", {
+        method: "POST",
+        headers: {
+            "X-CSRFToken": window.CSRF_TOKEN
+        },
+        body: formData()
+    })
+    .then(res => res.json().then(data => ({ ok: res.ok, data })))
+    .then(({ ok, data }) => {
+        showStatus(data.message, ok && data.ok);
+    })
+    .catch(err => showStatus(err, false));
+}
+</script>
+
+</body>
+</html>

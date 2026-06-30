@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Administrar Usuarios</title>
+
+    <link href="/static/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/style.css" rel="stylesheet">
+
+</head>
+
+<body class="dashboard-body">
+
+<div class="dashboard-shell">
+
+    <header class="topbar">
+        <div>
+            <p class="eyebrow mb-1">Administracion</p>
+            <h1 class="page-title mb-0">Usuarios</h1>
+        </div>
+        <div class="page-actions">
+            <a href="/admin/logs" class="btn btn-outline-warning btn-sm">Logs</a>
+            <a href="/" class="btn btn-outline-light btn-sm">Volver</a>
+        </div>
+    </header>
+
+    <main class="content-stack">
+        <section class="panel">
+            <h2 class="section-title">Crear Usuario</h2>
+            <form method="POST" action="/admin/create_user">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <div class="row g-3 align-items-end">
+                    <div class="col-12 col-md-4">
+                        <label class="form-label">Usuario</label>
+                        <input
+                            type="text"
+                            name="username"
+                            placeholder="Nombre de usuario"
+                            class="form-control"
+                            required
+                        >
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label">Contraseña</label>
+                        <input
+                            type="password"
+                            name="password"
+                            placeholder="Mínimo 6 caracteres"
+                            class="form-control"
+                            required
+                            minlength="6"
+                        >
+                    </div>
+                    <div class="col-12 col-md-2">
+                        <label class="form-label">Rol</label>
+                        <select name="role" class="form-select">
+                            <option value="viewer">Viewer</option>
+                            <option value="operator">Operator</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-2">
+                        <button class="btn btn-success w-100" type="submit">Crear</button>
+                    </div>
+                </div>
+            </form>
+        </section>
+
+        <section>
+            {% for user in users %}
+            <div class="panel user-card">
+                <form method="POST" action="/admin/update_user/{{ user[0] }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-12 col-sm-2 col-lg-1">
+                            <label class="form-label">ID</label>
+                            <input type="text" class="form-control" value="{{ user[0] }}" disabled>
+                        </div>
+                        <div class="col-12 col-sm-5 col-lg-3">
+                            <label class="form-label">Usuario</label>
+                            <input type="text" name="username" class="form-control" value="{{ user[1] }}" required>
+                        </div>
+                        <div class="col-12 col-sm-5 col-lg-3">
+                            <label class="form-label">Contraseña</label>
+                            <input type="password" name="password" class="form-control" placeholder="Dejar vacía para mantenerla" minlength="6">
+                        </div>
+                        <div class="col-12 col-sm-6 col-lg-2">
+                            <label class="form-label">Rol</label>
+                            <select name="role" class="form-select">
+                                <option value="viewer" {% if user[2] == "viewer" %}selected{% endif %}>Viewer</option>
+                                <option value="operator" {% if user[2] == "operator" %}selected{% endif %}>Operator</option>
+                                <option value="admin" {% if user[2] == "admin" %}selected{% endif %}>Admin</option>
+                            </select>
+                        </div>
+                        <div class="col-12 col-sm-6 col-lg-3 d-flex gap-2">
+                            <button type="submit" class="btn btn-outline-warning flex-grow-1">Guardar</button>
+                            <button type="submit" class="btn btn-outline-danger flex-grow-1" formaction="/admin/delete_user/{{ user[0] }}" formmethod="post" onclick="return confirm('¿Está seguro?')">Eliminar</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            {% endfor %}
+        </section>
+    </main>
+
+</div>
+
+</body>
+</html>

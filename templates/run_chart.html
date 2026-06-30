@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Grafico Hisorial #{{ run.id }}</title>
+
+    <link
+        href="/static/vendor/bootstrap/bootstrap.min.css"
+        rel="stylesheet"
+    >
+    <link href="/static/style.css" rel="stylesheet">
+    <script src="/static/vendor/chart.js/chart.umd.min.js"></script>
+    <script src="/static/vendor/hammerjs/hammer.min.js"></script>
+    <script src="/static/vendor/chartjs-plugin-zoom/chartjs-plugin-zoom.min.js"></script>
+
+</head>
+
+<body class="dashboard-body">
+
+<div class="dashboard-shell">
+
+    <header class="topbar">
+        <div>
+            <p class="eyebrow mb-1">Historial de ejecuciones</p>
+            <h1 class="page-title mb-0">Grafico Ejecucion #{{ run.id }}</h1>
+        </div>
+        <div class="page-actions">
+            <a href="/runs" class="btn btn-outline-light btn-sm">Volver</a>
+        </div>
+    </header>
+
+    <main class="content-stack">
+        <section class="panel">
+            <div class="summary-grid run-summary-grid">
+                <div class="metric-card summary-card">
+                    <span class="metric-label">Inicio</span>
+                    <strong>{{ run.started_at[:19] if run.started_at else '-' }}</strong>
+                </div>
+                <div class="metric-card summary-card">
+                    <span class="metric-label">Fin</span>
+                    <strong>{{ run.ended_at[:19] if run.ended_at else '-' }}</strong>
+                </div>
+                <div class="metric-card summary-card run-range-card">
+                    <span class="metric-label">Rango de visualizacion</span>
+                    <div class="run-range-controls">
+                        <label>
+                            <span class="metric-label">Desde</span>
+                            <input
+                                class="form-control form-control-sm"
+                                id="runRangeStart"
+                                type="datetime-local"
+                            >
+                        </label>
+                        <label>
+                            <span class="metric-label">Hasta</span>
+                            <input
+                                class="form-control form-control-sm"
+                                id="runRangeEnd"
+                                type="datetime-local"
+                            >
+                        </label>
+                        <button
+                            class="btn btn-sm btn-outline-info"
+                            type="button"
+                            id="applyRunRange"
+                        >
+                            Aplicar
+                        </button>
+                        <button
+                            class="btn btn-sm btn-outline-light"
+                            type="button"
+                            id="clearRunRange"
+                        >
+                            Ver completo
+                        </button>
+                        <button
+                            class="btn btn-sm btn-outline-warning"
+                            type="button"
+                            id="resetChartZoom"
+                        >
+                            Restablecer zoom
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="panel run-chart-panel">
+            <div class="panel-header">
+                <div>
+                    <h2>Trazado de temperaturas</h2>
+                    <p id="runChartStatus">Cargando datos...</p>
+                </div>
+                <div class="page-actions">
+                    <a
+                        class="btn btn-outline-info btn-sm"
+                        id="exportCsvLink"
+                        href="/export_csv?run_id={{ run.id }}"
+                    >
+                        CSV
+                    </a>
+                    <a
+                        class="btn btn-outline-success btn-sm"
+                        id="exportExcelLink"
+                        href="/export_excel?run_id={{ run.id }}"
+                    >
+                        Excel
+                    </a>
+                </div>
+            </div>
+
+            <div class="chart-frame run-chart-frame run-chart-frame-large">
+                <canvas id="runHistoryChart"></canvas>
+            </div>
+        </section>
+    </main>
+
+</div>
+
+<script>
+const runId = Number("{{ run.id }}");
+const runIsRunning = "{{ run.status }}" === "RUNNING";
+const runChartStatus = document.getElementById("runChartStatus");
+const runRangeStart = document.getElementById("runRangeStart");
+const runRangeEnd = document.getElementById("runRangeEnd");
+const applyRunRange = document.getElementById("applyRunRange");
+const clearRunRange = document.getElementById("clearRunRange");
+const resetChartZoom = document.getElementById("resetChartZoom");
+const exportCsvLink = document.getElementById("exportCsvLink");
+const exportExcelLink = document.getElementById("exportExcelLink");
+const runChartCanvas = document.getElementById("runHistoryChart");
+let rangeIsFiltered = false;
+let refreshTimer = null;
+
+const runHistoryChart = new Chart(runChartCanvas, {
+    type: "line",
+    data: {
+        labels: [],
+        datasets: [
+            {
+                label: "Termocupla 1",
+                data: [],
+                borderWidth: 2,
+                borderColor: "#5fd3b3",
+                backgroundColor: "rgba(95, 211, 179, 0.12)",
+                pointRadius: 0,
+                tension: 0.25
+            },
+            {
+                label: "Termocupla 2",
+                data: [],
+                borderWidth: 2,
+                borderColor: "#f3c74f",
+                backgroundColor: "rgba(243, 199, 79, 0.12)",
+                pointRadius: 0,
+                tension: 0.25
+            },
+            {
+                label: "SetPoint",
+                data: [],
+                borderWidth: 2,
+                borderColor: "#ff0000",
+                backgroundColor: "rgba(255, 115, 115, 0.12)",
+                pointRadius: 0,
+                tension: 0.25
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        interaction: {
+            intersect: false,
+            mode: "index"
+        },
+        plugins: {
+            legend: {
+                labels: {
+                    color: "#d8e3e7",
+                    boxWidth: 12
+                }
+            },
+            zoom: {
+                limits: {
+                    x: {
+                        min: "original",
+                        max: "original"
+                    },
+                    y: {
+                        min: "original",
+                        max: "original"
+                    }
+                },
+                zoom: {
+                    drag: {
+                        enabled: true,
+                        backgroundColor: "rgba(126, 215, 255, 0.16)",
+                        borderColor: "rgba(126, 215, 255, 0.72)",
+                        borderWidth: 1
+                    },
+                    mode: "xy"
+                }
+            }
+        },
+        scales: {
+            x: {
+                ticks: {
+                    color: "#9aa8ad",
+                    maxRotation: 0,
+                    autoSkip: true,
+                    maxTicksLimit: 12
+                },
+                grid: {
+                    color: "rgba(255, 255, 255, 0.06)"
+                }
+            },
+            y: {
+                ticks: {
+                    color: "#9aa8ad"
+                },
+                grid: {
+                    color: "rgba(255, 255, 255, 0.08)"
+                }
+            }
+        }
+    }
+});
+
+function toDateTimeLocalValue(timestamp) {
+    return String(timestamp || "").slice(0, 16);
+}
+
+function chartLabel(timestamp) {
+    const value = String(timestamp || "");
+    return value.includes("T") ? value.replace("T", " ").slice(0, 19) : value;
+}
+
+function renderRunChart(rows) {
+    runHistoryChart.data.labels = rows.map(row => chartLabel(row.timestamp));
+    runHistoryChart.data.datasets[0].data = rows.map(row => row.tc1);
+    runHistoryChart.data.datasets[1].data = rows.map(row => row.tc2);
+    runHistoryChart.data.datasets[2].data = rows.map(row => row.sp);
+    runHistoryChart.update();
+
+    const liveText = runIsRunning && !rangeIsFiltered ? " Actualizando en tiempo real." : "";
+
+    runChartStatus.innerText = rows.length
+        ? `${rows.length} muestra${rows.length === 1 ? "" : "s"} visibles.${liveText}`
+        : "No hay datos para el rango seleccionado.";
+}
+
+function exportQuery() {
+    const params = new URLSearchParams({
+        run_id: String(runId)
+    });
+
+    if (rangeIsFiltered && runRangeStart.value) {
+        params.set("start", runRangeStart.value);
+    }
+
+    if (rangeIsFiltered && runRangeEnd.value) {
+        params.set("end", runRangeEnd.value);
+    }
+
+    return params.toString();
+}
+
+function updateExportLinks() {
+    const query = exportQuery();
+    exportCsvLink.href = `/export_csv?${query}`;
+    exportExcelLink.href = `/export_excel?${query}`;
+}
+
+function loadRunChart(keepRange = false) {
+    const params = new URLSearchParams();
+
+    if (keepRange && runRangeStart.value) {
+        params.set("start", runRangeStart.value);
+    }
+
+    if (keepRange && runRangeEnd.value) {
+        params.set("end", runRangeEnd.value);
+    }
+
+    updateExportLinks();
+
+    runChartStatus.innerText = "Cargando datos...";
+
+    const query = params.toString();
+
+    fetch(`/api/runs/${runId}/readings${query ? `?${query}` : ""}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error("No se pudo cargar la Ejecucion.");
+            }
+
+            return response.json();
+        })
+        .then(rows => {
+            renderRunChart(rows);
+
+            if (!keepRange && rows.length) {
+                runRangeStart.value = toDateTimeLocalValue(rows[0].timestamp);
+                runRangeEnd.value = toDateTimeLocalValue(rows[rows.length - 1].timestamp);
+            }
+        })
+        .catch(error => {
+            renderRunChart([]);
+            runChartStatus.innerText = error.message;
+        });
+}
+
+function refreshLiveChart() {
+    if (runIsRunning && !rangeIsFiltered) {
+        loadRunChart(false);
+    }
+}
+
+function startLiveRefresh() {
+    if (!runIsRunning || refreshTimer) {
+        return;
+    }
+
+    refreshTimer = setInterval(refreshLiveChart, 5000);
+}
+
+applyRunRange.addEventListener("click", () => {
+    rangeIsFiltered = true;
+    updateExportLinks();
+    loadRunChart(true);
+});
+
+clearRunRange.addEventListener("click", () => {
+    rangeIsFiltered = false;
+    runRangeStart.value = "";
+    runRangeEnd.value = "";
+    updateExportLinks();
+    loadRunChart();
+
+    if (typeof runHistoryChart.resetZoom === "function") {
+        runHistoryChart.resetZoom();
+    }
+});
+
+resetChartZoom.addEventListener("click", () => {
+    if (typeof runHistoryChart.resetZoom === "function") {
+        runHistoryChart.resetZoom();
+    }
+});
+
+loadRunChart();
+startLiveRefresh();
+</script>
+
+</body>
+</html>
